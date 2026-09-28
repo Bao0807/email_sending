@@ -1,0 +1,4 @@
+murach\email\controller\EmailListServlet.class
+murach\email\dao\UserDAO.class
+murach\email\util\DBUtil.class
+murach\email\model\User.class
