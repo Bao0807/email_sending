@@ -22,6 +22,9 @@ public class MailUtilGmail {
         props.put("mail.smtps.port", "465");
         props.put("mail.smtps.auth", "true");
         props.put("mail.smtps.quitwait", "false");
+        // Thiết lập timeout 5 giây tránh bị treo request nếu cổng bị chặn
+        props.put("mail.smtps.connectiontimeout", "5000");
+        props.put("mail.smtps.timeout", "5000");
         Session session = Session.getDefaultInstance(props);
         session.setDebug(true);
 
