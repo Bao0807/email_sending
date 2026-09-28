@@ -1,52 +1,81 @@
 package murach.email.util;
 
-import java.util.Properties;
-import jakarta.mail.Address;
-import jakarta.mail.Message;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import jakarta.mail.MessagingException;
-import jakarta.mail.Session;
-import jakarta.mail.Transport;
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
 
 public class MailUtilGmail {
+
+    private static final String BREVO_API_KEY = "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";
 
     public static void sendMail(String to, String from,
             String subject, String body, boolean bodyIsHTML)
             throws MessagingException {
 
-        // 1 - get a mail session
-        Properties props = new Properties();
-        props.put("mail.transport.protocol", "smtps");
-        props.put("mail.smtps.host", "smtp.gmail.com");
-        props.put("mail.smtps.port", "465");
-        props.put("mail.smtps.auth", "true");
-        props.put("mail.smtps.quitwait", "false");
-        // Thiết lập timeout 5 giây tránh bị treo request nếu cổng bị chặn
-        props.put("mail.smtps.connectiontimeout", "5000");
-        props.put("mail.smtps.timeout", "5000");
-        Session session = Session.getDefaultInstance(props);
-        session.setDebug(true);
+        try {
+            String contentKey = bodyIsHTML ? "\"htmlContent\":" : "\"textContent\":";
 
-        // 2 - create a message
-        Message message = new MimeMessage(session);
-        message.setSubject(subject);
-        if (bodyIsHTML) {
-            message.setContent(body, "text/html");
-        } else {
-            message.setText(body);
+            // Chuẩn bị payload JSON gửi tới Brevo qua cổng HTTPS 443
+            String jsonPayload = "{"
+                    + "\"sender\":{\"name\":\"Murach Email List\",\"email\":\"" + escapeJson(from) + "\"},"
+                    + "\"to\":[{\"email\":\"" + escapeJson(to) + "\"}],"
+                    + "\"subject\":\"" + escapeJson(subject) + "\","
+                    + contentKey + "\"" + escapeJson(body) + "\""
+                    + "}";
+
+            HttpClient client = HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofSeconds(10))
+                    .build();
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                    .header("accept", "application/json")
+                    .header("api-key", BREVO_API_KEY)
+                    .header("content-type", "application/json")
+                    .timeout(Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                    .build();
+
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 400) {
+                System.err.println("Brevo API error: " + response.statusCode() + " - " + response.body());
+                throw new MessagingException("Brevo API error (" + response.statusCode() + "): " + response.body());
+            } else {
+                System.out.println("Email sent successfully via Brevo HTTPS: " + response.body());
+            }
+        } catch (MessagingException me) {
+            throw me;
+        } catch (Exception e) {
+            throw new MessagingException("Failed to send email via Brevo: " + e.getMessage(), e);
         }
+    }
 
-        // 3 - address the message
-        Address fromAddress = new InternetAddress(from);
-        Address toAddress = new InternetAddress(to);
-        message.setFrom(fromAddress);
-        message.setRecipient(Message.RecipientType.TO, toAddress);
-
-        // 4 - send the message
-        Transport transport = session.getTransport();
-        transport.connect("trannhubao217@gmail.com", "sbrc njfm opgv mqbd");
-        transport.sendMessage(message, message.getAllRecipients());
-        transport.close();
+    private static String escapeJson(String str) {
+        if (str == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+            switch (c) {
+                case '"': sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\b': sb.append("\\b"); break;
+                case '\f': sb.append("\\f"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                default:
+                    if (c < ' ') {
+                        String t = "000" + Integer.toHexString(c);
+                        sb.append("\\u").append(t.substring(t.length() - 4));
+                    } else {
+                        sb.append(c);
+                    }
+            }
+        }
+        return sb.toString();
     }
 }
