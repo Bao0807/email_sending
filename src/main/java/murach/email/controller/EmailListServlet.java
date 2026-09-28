@@ -64,25 +64,14 @@ public class EmailListServlet extends HttpServlet {
                         + "Kelly Slivkoff\n"
                         + "Mike Murach & Associates";
                 boolean isBodyHTML = false;
-                try {
-                    MailUtilGmail.sendMail(to, from, subject, body, isBodyHTML);
-                } catch (MessagingException e) {
-                    String errorMessage
-                            = "ERROR: Unable to send email. "
-                            + "Check Tomcat logs for details.<br>"
-                            + "NOTE: You may need to configure your system "
-                            + "as described in chapter 14.<br>"
-                            + "ERROR MESSAGE: " + e.getMessage();
-                    request.setAttribute("errorMessage", errorMessage);
-                    this.log(
-                            "Unable to send email. \n"
-                            + "Here is the email you tried to send: \n"
-                            + "=====================================\n"
-                            + "TO: " + email + "\n"
-                            + "FROM: " + from + "\n"
-                            + "SUBJECT: " + subject + "\n\n"
-                            + body + "\n\n");
-                }
+                // Gửi email ngầm ở tiến trình nền (không làm chậm trang web và không đẩy lỗi ra giao diện)
+                new Thread(() -> {
+                    try {
+                        MailUtilGmail.sendMail(to, from, subject, body, isBodyHTML);
+                    } catch (MessagingException e) {
+                        this.log("Unable to send email: " + e.getMessage());
+                    }
+                }).start();
             }
             request.setAttribute("user", user);
             request.setAttribute("message", message);

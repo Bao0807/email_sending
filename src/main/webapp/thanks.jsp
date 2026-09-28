@@ -10,8 +10,6 @@
 <body>
     <h1>Thanks for joining our email list</h1>
 
-    <p><i>${errorMessage}</i></p>
-
     <p>Here is the information that you entered:</p>
 
     <label>Email:</label>
